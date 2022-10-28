@@ -667,7 +667,7 @@ void usb_cdc_frame() {
                     new_state |= control_lines_state;
                 } while (!(__sync_bool_compare_and_swap(&usb_cdc_states[port].serial_state, _state, new_state)));
             }
-            if (gpio_pin_get(&device_config->config_pin) != usb_cdc_config_mode) {
+            if (gpio_pin_get(&device_config->config_pin) != !usb_cdc_config_mode) {
                 if (usb_cdc_config_mode) {
                     usb_cdc_config_mode_leave();
                 } else {
