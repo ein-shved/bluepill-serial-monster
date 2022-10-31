@@ -9,7 +9,10 @@
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 #define BUILD_BUG_ON(condition) ((void)sizeof(char[1 - 2*!!(condition)])) // From linux kernel
+
+#ifndef __packed
 #define __packed __attribute__ ((packed))
+#endif
 
 #ifndef __packed_aligned
 #define __packed_aligned(n) __attribute__ ((packed, aligned(n)))
