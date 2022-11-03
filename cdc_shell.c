@@ -7,10 +7,14 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdlib.h>
+#include <stdarg.h>
+#include <stdio.h>
+
 #include "usb_cdc.h"
 #include "gpio.h"
 #include "cdc_config.h"
 #include "device_config.h"
+#include "default_config.h"
 #include "version.h"
 #include "cdc_shell.h"
 
@@ -40,6 +44,26 @@ typedef struct {
 
 __noinline static void cdc_shell_write_string(const char *buf) {
     cdc_shell_write(buf, strlen(buf));
+}
+
+__noinline static void cdc_shell_msg(const char *fmt, ...) {
+    char buf[1024];
+    int len = 0;
+
+    if (fmt != 0) {
+        va_list va;
+        va_start(va, fmt);
+        len = vsnprintf(buf, sizeof(buf) - 2, fmt, va);
+        va_end(va);
+    }
+
+    if (len >= 0) {
+        if (len < 2 || ( buf[len - 2] != '\r' && buf[len - 2] != '\n')) {
+            buf[len++] = '\r';
+            buf[len++] = '\n';
+        }
+        cdc_shell_write(buf, len);
+    }
 }
 
 static int cdc_shell_invoke_command(int argc, char *argv[], const cdc_shell_cmd_t *commands) {
@@ -329,6 +353,75 @@ static void cdc_shell_cmd_uart(int argc, char *argv[]) {
     }
 }
 
+#define cdc_shell_msg_pin(pinn, fmt, ...) cdc_shell_msg("%6s [%d]: " fmt,     \
+                    gpion_to_str(pinn), gpion_pin_get(pinn), ## __VA_ARGS__)
+
+#define cdc_shell_gpion_pin_all_ref ((gpion_pin_t)(gpio_pin_last + 1))
+static void cdc_shell_cmd_gpio_show_pin_occupied(gpion_pin_t pinn) {
+    cdc_pin_ref_t cpin = gpion_to_cdc(pinn);
+    if (cpin.port < 0 || cpin.port >= USB_CDC_NUM_PORTS || cpin.pin >= cdc_pin_last) {
+        device_config_t *config = device_config_get();
+        if (config->status_led_pin == pinn) {
+            cdc_shell_msg_pin(pinn, "status led");
+        } else if (config->config_pin == pinn) {
+            cdc_shell_msg_pin(pinn, "configuration control");
+        } else {
+            cdc_shell_msg_pin(pinn, "got invalid occupied pin");
+        }
+    } else {
+        cdc_shell_msg_pin(pinn, "uart%d-%s", cpin.port + 1, _cdc_uart_signal_names[cpin.pin]);
+    }
+}
+
+static void cdc_shell_cmd_gpio_show(gpion_pin_t pinn) {
+    if (pinn == cdc_shell_gpion_pin_all_ref) {
+        for (gpion_pin_t pin = 0; pin < gpio_pin_last; ++pin) {
+            cdc_shell_cmd_gpio_show(pin);
+        }
+    } else {
+        gpio_pin_t *pin = gpion_to_gpio(pinn);
+        switch (pin->status) {
+        case gpio_status_blocked:
+            cdc_shell_msg_pin(pinn, "%s", default_config_get_blocked_reason(pinn));
+            break;
+        case gpio_status_occupied:
+            cdc_shell_cmd_gpio_show_pin_occupied(pinn);
+            break;
+        case gpio_status_free:
+            cdc_shell_msg_pin(pinn, "free");
+            break;
+        default:
+            cdc_shell_msg_pin(pinn, "unknown");
+            break;
+        }
+    }
+}
+
+static void cdc_shell_cmd_gpio(int argc, char *argv[]) {
+    gpion_pin_t pin = cdc_shell_gpion_pin_all_ref;
+    const char *cmd = "show";
+    if (argc > 0)
+    {
+        if (!strcmp(argv[0], "all")) {
+            pin = cdc_shell_gpion_pin_all_ref;
+        } else {
+            pin = str_to_gpion(argv[0]);
+            if (pin == gpio_pin_unknown) {
+                cdc_shell_msg("Invalid pin '%s'", argv[0]);
+                return;
+            }
+        }
+    }
+    if (argc > 1) {
+        cmd = argv[1];
+    }
+    if (!strcmp(cmd, "show")) {
+        return cdc_shell_cmd_gpio_show(pin);
+    } else {
+        cdc_shell_msg("Invalid gpio command '%s'", cmd);
+    }
+}
+
 
 static const char cdc_shell_err_config_missing_arguments[] = "Error, invalid or missing arguments, use \"help config\" for the list of arguments.\r\n";
 
@@ -393,6 +486,12 @@ static const cdc_shell_cmd_t cdc_shell_commands[] = {
                           "  pull\t\t[floating|up|down]\r\n"
                           "Example: \"uart 1 tx output od\" sets UART1 TX output type to open-drain\r\n"
                           "Example: \"uart 3 rts active high dcd active high pull down\" allows to set multiple parameters at once.",
+    },
+    {
+        .cmd            = "gpio",
+        .handler        = cdc_shell_cmd_gpio,
+        .description    = "set and view GPIO parameters",
+        .usage          = "Usage: gpio pin-name|port-name|all show\r\n",
     },
     {
         .cmd            = "version",
