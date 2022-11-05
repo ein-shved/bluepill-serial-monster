@@ -68,6 +68,13 @@ device_config_t *device_config_get() {
     return &current_device_config;
 }
 
+cdc_port_t *cdc_port_get(int cdc_port) {
+    if (USB_CDC_IS_USART(cdc_port)) {
+        return &device_config_get()->cdc_config.port_config[cdc_port - 1];
+    }
+    return 0;
+}
+
 void device_config_save() {
     uint16_t *last_config_magic = 0;
     uint8_t *config_page = (uint8_t*)DEVICE_CONFIG_BASE_ADDR;

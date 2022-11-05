@@ -94,4 +94,5 @@ gpio_status_t gpion_pin_get_status(gpion_pin_t pin);
 gpio_hal_t gpion_to_hal(gpion_pin_t pin);
 
 cdc_pin_ref_t gpion_to_cdc(gpion_pin_t pin);
+gpion_pin_t cdc_to_gpion(int cdc_port, cdc_pin_t cdc_pin);
 #endif /* GPION_H */

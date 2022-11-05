@@ -202,12 +202,11 @@ gpio_hal_t gpion_to_hal(gpion_pin_t pin) {
 #undef pin_is
 }
 
-cdc_pin_ref_t gpion_to_cdc(gpion_pin_t pin)
-{
+cdc_pin_ref_t gpion_to_cdc(gpion_pin_t pin) {
     cdc_pin_ref_t result = { .port = -1, .pin = cdc_pin_unknown, };
     device_config_t *device_config = device_config_get();
 
-    for (int port = 0; port < USB_CDC_NUM_PORTS; ++port) {
+    for (int port = 0; port < USART_NUM_PORTS; ++port) {
         for (cdc_pin_t cpin = 0; cpin < cdc_pin_last; ++cpin) {
             if (device_config->cdc_config.port_config[port].pins[cpin] == pin) {
                 result.port = port;
@@ -217,5 +216,17 @@ cdc_pin_ref_t gpion_to_cdc(gpion_pin_t pin)
         }
     }
     return result;
+}
+
+gpion_pin_t cdc_to_gpion(int cdc_port, cdc_pin_t cdc_pin) {
+    cdc_port_t *config = cdc_port_get(cdc_port);
+    if (config != 0 && cdc_pin < cdc_pin_last) {
+        gpion_pin_t pinn = config->pins[cdc_pin];
+        const gpio_pin_t *pin = gpion_to_gpio(pinn);
+        if (pin != 0 && pin->status == gpio_status_occupied) {
+            return pinn;
+        }
+    }
+    return gpio_pin_unknown;
 }
 

@@ -27,7 +27,7 @@ typedef struct {
 } default_port_t;
 
 typedef struct {
-    default_port_t port_config[USB_CDC_NUM_PORTS];
+    default_port_t port_config[USART_NUM_PORTS];
 } default_cdc_t;
 
 typedef struct {

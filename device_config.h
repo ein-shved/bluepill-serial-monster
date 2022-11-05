@@ -23,6 +23,7 @@ typedef struct {
 
 void device_config_init();
 device_config_t *device_config_get();
+cdc_port_t *cdc_port_get(int cdc_port);
 
 void device_config_save();
 void device_config_reset();
